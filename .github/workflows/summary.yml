@@ -61,3 +61,7 @@ jobs:
             —  
             _This is an automated message sent from GitHub Actions.
             Reply here only if you need assistance; otherwise, update the tracker._
+      - name: Clean up summary files          # ← add this block
+        if: always()                          # runs even if mail fails
+        run: |
+           rm -f SUMMARY_EMAIL.txt EMAIL_BODY.txt
