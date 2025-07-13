@@ -99,8 +99,4 @@ summary.py ◀──── GitHub Actions / Flow ──┘
 
 ---
 
-## 8 · License & credits
-*Code* is MIT; sample data CC‑BY‑4.0.
-Thanks to **Leila Gharani**, **Guy in a Cube**, **Storytelling With Data**, OpenAI, Microsoft & Atlassian for generous free tiers.
-
-— Built with ❤️ in Lahore PK · [LinkedIn](https://www.linkedin.com/in/hafiz-muhammad-yaseen-545913188/)
+— Built with ❤️ in Lahore PK · [LinkedIn](https://www.linkedin.com/in/hafizamahamejaz/)
