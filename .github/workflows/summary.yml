@@ -1,44 +1,32 @@
-name: Daily PMO Summary
+name: PMO Summary from repo file
 on:
-  workflow_dispatch:               # you can trigger it manually
+  push:
+    branches: [ main ]
+    paths: [ 'kpi_export.*' ]     # run only when CSV/XLSX changes
+  workflow_dispatch:              # manual run button
   schedule:
-    - cron: "0 5 * * *"            # every day 05:00 UTC  (edit as needed)
+    - cron:  '0 5 * * *'          # optional daily run if file is already present
 
 jobs:
-  build:
+  summarise:
     runs-on: ubuntu-latest
     steps:
-    - name: Check out repo
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # 1 ▸ pull the CSV from Power BI (Export To File REST API)
-    - name: Download latest KPI CSV
-      env:
-        PBI_TOKEN: ${{ secrets.PBI_TOKEN }}
-        PBI_GROUP_ID: ${{ secrets.PBI_GROUP_ID }}
-        PBI_REPORT_ID: ${{ secrets.PBI_REPORT_ID }}
-      run: |
-        curl -sS -X POST \
-          -H "Authorization: Bearer $PBI_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d '{"format":"CSV"}' \
-          "https://api.powerbi.com/v1.0/myorg/groups/$PBI_GROUP_ID/reports/$PBI_REPORT_ID/ExportTo"
-
-        mv *.csv kpi_export.csv
-
-    # 2 ▸ summarise with HF model
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+
     - name: Install deps
       run: pip install -r requirements.txt
+
     - name: Run summariser
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      run: python summary.py kpi_export.csv
+      run: python summary.py kpi_export.csv   # or .xlsx
+      #                                   ↑ same name every run
 
-    # 3 ▸ send e-mail via GitHub’s send-mailer action (works w/ Gmail, Outlook, etc.)
     - name: Send summary e-mail
       uses: dawidd6/action-send-mail@v3
       with:
