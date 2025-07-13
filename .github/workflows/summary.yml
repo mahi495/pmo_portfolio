@@ -27,20 +27,21 @@ jobs:
         run: python summary.py kpi_export.csv
 
       - name: Debug – show summary file    # good for the first test
-        run: head -20 SUMMARY_EMAIL.txt
+        run: head -30 SUMMARY_EMAIL.txt
 
       - name: Send summary e-mail
-        if: always()                       # still fires if earlier step fails
+        if: always()
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
-          secure: true                    # TLS on connect
+          secure: true
           username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}   # ← Gmail App-Password
-          subject: "Daily PMO RAG Summary – ${{ job.status }}"
+          password: ${{ secrets.EMAIL_PASS }}
           to: ${{ secrets.EMAIL_TO }}
           from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
+          subject: "Daily PMO Effort-Variance Report – ${{ job.status }}"
+
           body: |
             Hello Team,
 
@@ -59,4 +60,4 @@ jobs:
 
             —  
             _This is an automated message sent from GitHub Actions.
-            Please reply here only if you need help; otherwise, update the tracker._
+            Reply here only if you need assistance; otherwise, update the tracker._
