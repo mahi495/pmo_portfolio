@@ -1,17 +1,27 @@
 """
-summary.py – Generate a concise effort‑variance summary and (optionally) e‑mail it.
+summary.py – Generate a concise effort-variance summary and (optionally) e-mail it.
 
-Run:    python summary.py data/kpi_export.csv
+**Preference order**
+1. **OpenAI GPT** (set `OPENAI_API_KEY` – first choice)
+2. **Hugging Face BART** (set `HF_TOKEN` – automatic fallback if GPT absent *or* fails)
 
-Env vars required:
-  HF_TOKEN   – Hugging Face API key (for facebook/bart‑large‑cnn)
-  EMAIL_USER – SMTP username (e.g. Gmail address)
-  EMAIL_PASS – SMTP password / App Password
-  EMAIL_TO   – Comma‑separated recipient list ("a@x.com,b@y.com")
+Usage:
+    python summary.py <csv_or_xlsx_file>
 
-If mail creds are missing, the script just prints the summary and exits 0.
-The generated SUMMARY_EMAIL.txt is deleted after a successful send so the
-file never pollutes the git repo.
+Environment variables:
+  # === Summariser (set at least one) ===
+  OPENAI_API_KEY   – OpenAI key (uses gpt-4o-mini)
+  HF_TOKEN         – Hugging Face token (facebook/bart-large-cnn)
+
+  # === E-mail (all optional) ===
+  EMAIL_USER       – SMTP user (e.g., Gmail address)
+  EMAIL_PASS       – SMTP password / App Password
+  EMAIL_TO         – Comma-separated recipients
+
+If neither key is present, the script exits.  If both keys are present it
+**tries GPT first**; on any GPT error it logs a warning and falls back to BART.
+The generated SUMMARY_EMAIL.txt is deleted at the end so the file never ends
+up in the repo.
 """
 
 from __future__ import annotations
@@ -33,37 +43,69 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ──────────────────────────────────────────────────────────────────────
+# Environment & constants
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 HF_TOKEN = os.getenv("HF_TOKEN")
+
 SMTP_USER = os.getenv("EMAIL_USER", "")
 SMTP_PASS = os.getenv("EMAIL_PASS", "")
 SMTP_TO = [addr.strip() for addr in os.getenv("EMAIL_TO", "").split(",") if addr.strip()]
 
+GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4o-mini")
 MODEL_ID = "facebook/bart-large-cnn"
-API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
-HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+HF_API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+HF_HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
-FILE_IN = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 EMAIL_TMP = Path("SUMMARY_EMAIL.txt")
+FILE_IN = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 
 # ──────────────────────────────────────────────────────────────────────
-# Helper functions
-
+# Summariser functions
 
 def hf_summarise(bullets: str) -> str:
-    """Call the HF summarisation endpoint and return the summary text."""
-    if not HF_TOKEN:
-        sys.exit("ERROR: HF_TOKEN env var missing – cannot summarise.")
-
+    """Summarise text using Hugging Face BART."""
     payload = {"inputs": bullets, "parameters": {"max_length": 90}}
     try:
-        r = requests.post(API_URL, headers=HEADERS, json=payload, timeout=60)
+        r = requests.post(HF_API_URL, headers=HF_HEADERS, json=payload, timeout=60)
         if r.status_code == 401:
             sys.exit("ERROR: Hugging Face 401 – bad HF_TOKEN.")
         r.raise_for_status()
         return r.json()[0]["summary_text"]
     except requests.exceptions.RequestException as e:
-        sys.exit(f"ERROR: Request to Hugging Face failed → {e}")
+        sys.exit(f"ERROR: HF request failed → {e}")
 
+
+def gpt_summarise(bullets: str) -> str:
+    """Summarise text using OpenAI ChatCompletion."""
+    import openai  # import only when actually needed
+
+    openai.api_key = OPENAI_API_KEY
+    prompt = (
+        "Summarise the following project issues in ≤ 90 words, plain English, "
+        "grouping similar items and ending with an overall RAG if obvious.\n\n"
+        f"Issues: {bullets}"
+    )
+    resp = openai.ChatCompletion.create(
+        model=GPT_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+    return resp.choices[0].message["content"].strip()
+
+
+def summarise(bullets: str) -> str:
+    """Try GPT first; if it fails, fall back to HF if available."""
+    if OPENAI_API_KEY:
+        try:
+            return gpt_summarise(bullets)
+        except Exception as e:
+            print(f"[warn] OpenAI failed ({e}); falling back to Hugging Face…")
+    if HF_TOKEN:
+        return hf_summarise(bullets)
+    sys.exit("ERROR: No working summariser API key provided.")
+
+# ──────────────────────────────────────────────────────────────────────
+# Helper functions
 
 def load_rows(path: Path):
     if path.suffix.lower() == ".csv":
@@ -77,10 +119,7 @@ def build_bullets(rows: List[dict]) -> List[str]:
     if not reds:
         return ["All tasks green today – great job! 🎉"]
 
-    effort_key = next(
-        (k for k in rows[0].keys() if re.search(r"var.*h", k, re.I)), None
-    )
-
+    effort_key = next((k for k in rows[0].keys() if re.search(r"var.*h", k, re.I)), None)
     seen, bullets = set(), []
     for r in reds:
         task = (
@@ -92,7 +131,7 @@ def build_bullets(rows: List[dict]) -> List[str]:
         task = re.sub(r"\s+", " ", task)
         key = task.lower()
         if key in seen:
-            continue  # de‑dupe
+            continue  # de-dupe
         seen.add(key)
         hrs = r.get(effort_key, "?") if effort_key else "?"
         bullets.append(f"{task}: {hrs}h over")
@@ -106,7 +145,7 @@ def craft_email(summary: str) -> EmailMessage:
         f"""\
         Hello Team,
 
-        Below is today’s effort‑variance snapshot generated by the PMO pipeline.
+        Below is today’s effort-variance snapshot generated by the PMO pipeline.
 
         {summary}
 
@@ -119,25 +158,23 @@ def craft_email(summary: str) -> EmailMessage:
         """
     )
     msg = EmailMessage()
-    msg["Subject"] = "Daily PMO Effort‑Variance Snapshot"
-    msg["From"] = SMTP_USER or "pmo‑bot@example.com"
+    msg["Subject"] = "Daily PMO Effort-Variance Snapshot"
+    msg["From"] = SMTP_USER or "pmo-bot@example.com"
     msg["To"] = ", ".join(SMTP_TO) or SMTP_USER
     msg.set_content(body)
     return msg
 
 
 def send_mail(msg: EmailMessage) -> None:
-    if not (SMTP_USER and SMTP_PASS and SMTP_TO):
+    if not (SMTP_USER and SMTP_PASS and (SMTP_TO or SMTP_USER)):
         print("[warn] Mail creds missing – skipping SMTP send.")
         return
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
         s.login(SMTP_USER, SMTP_PASS)
         s.send_message(msg)
 
-
 # ──────────────────────────────────────────────────────────────────────
 # Main
-
 
 def main():
     if not FILE_IN or not FILE_IN.exists():
@@ -145,18 +182,13 @@ def main():
 
     rows = load_rows(FILE_IN)
     bullets = build_bullets(rows)
-    summary = hf_summarise("; ".join(bullets))
+    summary_text = summarise("; ".join(bullets))
 
-    # write temp file for CI step debug / optional artefact
-    EMAIL_TMP.write_text(summary, encoding="utf‑8")
+    EMAIL_TMP.write_text(summary_text, encoding="utf-8")
+    print("\n" + textwrap.fill(summary_text, 100) + "\n")
 
-    # pretty‑print to runner log / console
-    print("\n" + textwrap.fill(summary, 100) + "\n")
+    send_mail(craft_email(summary_text))
 
-    # e‑mail if possible
-    send_mail(craft_email(summary))
-
-    # delete artefact so repo stays clean (CI runner only)
     try:
         EMAIL_TMP.unlink()
     except FileNotFoundError:
