@@ -1,4 +1,4 @@
-WBS_ID,Task_Name,Owner,Baseline_Start,Baseline_Finish,Baseline_Effort_hrs,Predecessor(s),Actual_Start,Actual_Finish,Actual_Effort_hrs,%_Complete,Effort_Var_h,Status_RAG,,,
+WBS_ID,Task_Name,Owner,Baseline_Start,Baseline_Finish,Baseline_Effort_hrs,Predecessor(s),Actual_Start,Actual_Finish,Actual_Effort_hrs,%_Complete,Effort_Variance_hrs,Status_RAG,,,
 1,Initiation & Planning,PM,4/1/2024,4/5/2024,40,,4/1/2024,4/5/2024,42,100,2,Amber,,,
 1.1,Kick-off & charter,PM,4/1/2024,4/2/2024,16,,4/1/2024,4/2/2024,18,100,2,Amber,,,
 1.2,Stakeholder & risk register,PM,4/3/2024,4/5/2024,24,1.1,4/3/2024,4/5/2024,24,100,0,Green,,,
