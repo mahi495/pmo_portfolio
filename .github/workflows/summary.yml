@@ -1,11 +1,12 @@
 name: PMO Summary from repo file
+
 on:
   push:
     branches: [ main ]
-    paths: [ 'kpi_export.*' ]     # run only when CSV/XLSX changes
-  workflow_dispatch:              # manual run button
+    paths: [ 'kpi_export.*' ]      # CSV or XLSX
+  workflow_dispatch:
   schedule:
-    - cron:  '0 5 * * *'          # optional daily run if file is already present
+    - cron: '0 5 * * *'            # 05:00 UTC = 10:00 PKT daily
 
 jobs:
   summarise:
@@ -24,18 +25,18 @@ jobs:
     - name: Run summariser
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      run: python summary.py kpi_export.csv   # or .xlsx
-      #                                   ↑ same name every run
+      run: python summary.py kpi_export.csv   # change if you adopt wildcard
 
     - name: Send summary e-mail
+      if: always()                             # ← fire even on failure
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: smtp.gmail.com
-        server_port: 587
+        server_port: 465                      # simpler: SSL all the way
+        secure: true                          # TLS on connect
         username: ${{ secrets.EMAIL_USER }}
         password: ${{ secrets.EMAIL_PASS }}
         subject: "Daily PMO RAG Summary"
         to: ${{ secrets.EMAIL_TO }}
-        from: "PMO Bot"
-        content_type: text/plain
-        body_file: SUMMARY_EMAIL.txt
+        from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
+        body: file://SUMMARY_EMAIL.txt        # reads the file into message
