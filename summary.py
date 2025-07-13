@@ -2,7 +2,8 @@
 import os, csv, sys, textwrap, requests
 from pathlib import Path
 import pandas as pd
-
+from dotenv import load_dotenv
+load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_ID = "facebook/bart-large-cnn"
 API_URL  = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
