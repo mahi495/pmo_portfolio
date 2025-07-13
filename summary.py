@@ -1,65 +1,169 @@
-# summary.py
-import os, csv, sys, textwrap, requests
+"""
+summary.py – Generate a concise effort‑variance summary and (optionally) e‑mail it.
+
+Run:    python summary.py data/kpi_export.csv
+
+Env vars required:
+  HF_TOKEN   – Hugging Face API key (for facebook/bart‑large‑cnn)
+  EMAIL_USER – SMTP username (e.g. Gmail address)
+  EMAIL_PASS – SMTP password / App Password
+  EMAIL_TO   – Comma‑separated recipient list ("a@x.com,b@y.com")
+
+If mail creds are missing, the script just prints the summary and exits 0.
+The generated SUMMARY_EMAIL.txt is deleted after a successful send so the
+file never pollutes the git repo.
+"""
+
+from __future__ import annotations
+
+import csv
+import os
+import re
+import smtplib
+import sys
+import textwrap
+from email.message import EmailMessage
 from pathlib import Path
+from typing import List
+
 import pandas as pd
+import requests
 from dotenv import load_dotenv
+
 load_dotenv()
+
+# ──────────────────────────────────────────────────────────────────────
 HF_TOKEN = os.getenv("HF_TOKEN")
+SMTP_USER = os.getenv("EMAIL_USER", "")
+SMTP_PASS = os.getenv("EMAIL_PASS", "")
+SMTP_TO = [addr.strip() for addr in os.getenv("EMAIL_TO", "").split(",") if addr.strip()]
+
 MODEL_ID = "facebook/bart-large-cnn"
-API_URL  = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
-HEADERS  = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+API_URL = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
-FILE_IN   = Path(sys.argv[1])           # path passed by workflow or CLI
-EMAIL_OUT = Path("SUMMARY_EMAIL.txt")
+FILE_IN = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+EMAIL_TMP = Path("SUMMARY_EMAIL.txt")
 
-# ---------------------------------------------------------------------
-def hf_summarise(text: str) -> str:
+# ──────────────────────────────────────────────────────────────────────
+# Helper functions
+
+
+def hf_summarise(bullets: str) -> str:
+    """Call the HF summarisation endpoint and return the summary text."""
     if not HF_TOKEN:
-        sys.exit("ERROR: HF_TOKEN environment variable is missing. "
-                 "Set it locally or add it as a GitHub secret.")
+        sys.exit("ERROR: HF_TOKEN env var missing – cannot summarise.")
 
-    payload = {"inputs": text, "parameters": {"max_length": 90}}
+    payload = {"inputs": bullets, "parameters": {"max_length": 90}}
     try:
         r = requests.post(API_URL, headers=HEADERS, json=payload, timeout=60)
         if r.status_code == 401:
-            sys.exit("ERROR: Hugging Face returned 401 – invalid or expired HF_TOKEN.")
+            sys.exit("ERROR: Hugging Face 401 – bad HF_TOKEN.")
         r.raise_for_status()
         return r.json()[0]["summary_text"]
     except requests.exceptions.RequestException as e:
         sys.exit(f"ERROR: Request to Hugging Face failed → {e}")
 
-# ---------------------------------------------------------------------
+
 def load_rows(path: Path):
     if path.suffix.lower() == ".csv":
-        import csv
         return list(csv.DictReader(path.open()))
-    else:                                # .xlsx
-        return pd.read_excel(path).to_dict(orient="records")
+    return pd.read_excel(path).to_dict(orient="records")
 
-def build_prompt(rows):
-    reds = [r for r in rows if str(r.get("Status_RAG", "")).lower() == "red"]
+
+def build_bullets(rows: List[dict]) -> List[str]:
+    """Return list of unique Red-task bullet strings limited to 10 items."""
+    reds = [r for r in rows if str(r.get("Status_RAG", "")).lower().startswith("red")]
     if not reds:
-        return "Good news—no red tasks today."
+        return ["All tasks green today – great job! 🎉"]
 
-    # find a key that looks like effort variance hours
     effort_key = next(
-        (k for k in rows[0].keys()
-         if "effort" in k.lower() and "var" in k.lower() and "hr" in k.lower()),
-        None
+        (k for k in rows[0].keys() if re.search(r"var.*h", k, re.I)), None
     )
 
-    parts = []
-    for r in reds[:10]:
-        effort = r.get(effort_key, "?") if effort_key else "?"
-        parts.append(f'{r.get("Task_Name", "(no name)")}: {effort}h over')
-    return "Summarize project issues: " + "; ".join(parts)
+    seen, bullets = set(), []
+    for r in reds:
+        task = (
+            r.get("Task_Name")
+            or r.get("Task")
+            or r.get("Work_Package")
+            or "(no name)"
+        ).strip()
+        task = re.sub(r"\s+", " ", task)
+        key = task.lower()
+        if key in seen:
+            continue  # de‑dupe
+        seen.add(key)
+        hrs = r.get(effort_key, "?") if effort_key else "?"
+        bullets.append(f"{task}: {hrs}h over")
+        if len(bullets) == 10:
+            break
+    return bullets
 
-# ---------------------------------------------------------------------
+
+def craft_email(summary: str) -> EmailMessage:
+    body = textwrap.dedent(
+        f"""\
+        Hello Team,
+
+        Below is today’s effort‑variance snapshot generated by the PMO pipeline.
+
+        {summary}
+
+        Next steps
+        • Review the items above and confirm root causes.
+        • Add recovery actions or updated ETAs to the project tracker before 17:00 PKT today.
+
+        Thanks,
+        Hafiza Maham
+        """
+    )
+    msg = EmailMessage()
+    msg["Subject"] = "Daily PMO Effort‑Variance Snapshot"
+    msg["From"] = SMTP_USER or "pmo‑bot@example.com"
+    msg["To"] = ", ".join(SMTP_TO) or SMTP_USER
+    msg.set_content(body)
+    return msg
+
+
+def send_mail(msg: EmailMessage) -> None:
+    if not (SMTP_USER and SMTP_PASS and SMTP_TO):
+        print("[warn] Mail creds missing – skipping SMTP send.")
+        return
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+        s.login(SMTP_USER, SMTP_PASS)
+        s.send_message(msg)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Main
+
+
 def main():
+    if not FILE_IN or not FILE_IN.exists():
+        sys.exit("Usage: python summary.py <csv_or_xlsx_file>")
+
     rows = load_rows(FILE_IN)
-    summary = hf_summarise(build_prompt(rows))
-    EMAIL_OUT.write_text(summary)
-    print(textwrap.fill(summary, 100))
+    bullets = build_bullets(rows)
+    summary = hf_summarise("; ".join(bullets))
+
+    # write temp file for CI step debug / optional artefact
+    EMAIL_TMP.write_text(summary, encoding="utf‑8")
+
+    # pretty‑print to runner log / console
+    print("\n" + textwrap.fill(summary, 100) + "\n")
+
+    # e‑mail if possible
+    send_mail(craft_email(summary))
+
+    # delete artefact so repo stays clean (CI runner only)
+    try:
+        EMAIL_TMP.unlink()
+    except FileNotFoundError:
+        pass
+
+    sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
