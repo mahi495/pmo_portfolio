@@ -1,35 +1,44 @@
+name: PMO Summary from repo file          # free-form name shown in Actions tab
+
+on:                                       # WHEN should the workflow run?
+  push:                                   # ① every push to main
+    branches: [ main ]
+  workflow_dispatch:                      # ② manual “Run workflow” button
+  schedule:                               # ③ daily at 05:00 UTC (10:00 PKT)
+    - cron:  '0 5 * * *'
+
 jobs:
   summarise:
     runs-on: ubuntu-latest
-    env:                          # 👈 makes HF_TOKEN visible to every step
+    env:                                  # makes HF_TOKEN visible in all steps
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
+      - uses: actions/checkout@v4
 
-    - name: Install deps
-      run: pip install -r requirements.txt
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Run summariser
-      run: python summary.py kpi_export.csv
+      - name: Install deps
+        run: pip install -r requirements.txt
 
-    # Optional: peek at the file (good for first test)
-    - name: Debug – show summary file
-      run: head -20 SUMMARY_EMAIL.txt
+      - name: Run summariser
+        run: python summary.py kpi_export.csv
 
-    - name: Send summary e-mail
-      if: always()                       # still fires on failure
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        secure: true                    # TLS on connect
-        username: ${{ secrets.EMAIL_USER }}
-        password: ${{ secrets.EMAIL_PASS }}
-        subject: "Daily PMO RAG Summary – ${{ job.status }}"
-        to: ${{ secrets.EMAIL_TO }}
-        from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
-        body: file://SUMMARY_EMAIL.txt
+      - name: Debug – show summary file    # good for the first test
+        run: head -20 SUMMARY_EMAIL.txt
+
+      - name: Send summary e-mail
+        if: always()                       # still fires if earlier step fails
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true                    # TLS on connect
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}   # ← Gmail App-Password
+          subject: "Daily PMO RAG Summary – ${{ job.status }}"
+          to: ${{ secrets.EMAIL_TO }}
+          from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
+          body: file://SUMMARY_EMAIL.txt   # ← nothing else on this line
