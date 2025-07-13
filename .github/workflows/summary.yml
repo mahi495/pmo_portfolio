@@ -60,8 +60,3 @@ jobs:
           from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
           subject: "Daily PMO Effort-Variance Report – ${{ job.status }}"
           body: file://EMAIL_BODY.txt      # ← entire message comes from this file
-
-      - name: Clean up generated files
-        if: always()                       # runs whether mail step succeeds or fails
-        run: |
-          rm -f SUMMARY_EMAIL.txt EMAIL_BODY.txt
