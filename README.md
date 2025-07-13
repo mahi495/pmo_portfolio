@@ -12,7 +12,6 @@
 | `scripts/summary.py` | Reads today’s CSV → builds a bullet list → **tries GPT‑4o‑mini** → if that fails, falls back to **BART‑CNN** on Hugging Face → e‑mails the digest → deletes the temp txt. |
 | `.github/workflows/summary.yml` | A scheduled Action that runs the script every morning PKT, assembles an HTML‑ish e‑mail, and sends it via Gmail. |
 | `powerbi/PM_Dashboard.pbix` | Finished report (earned‑value KPIs, slicers). |
-| `automate/flow_definition.zip` | Importable Power Automate cloud flow if you prefer Microsoft 365 over GitHub Actions. |
 
 ---
 
