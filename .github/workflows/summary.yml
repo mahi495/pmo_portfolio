@@ -1,42 +1,35 @@
-name: PMO Summary from repo file
-
-on:
-  push:
-    branches: [ main ]
-    paths: [ 'kpi_export.*' ]      # CSV or XLSX
-  workflow_dispatch:
-  schedule:
-    - cron: '0 5 * * *'            # 05:00 UTC = 10:00 PKT daily
-
 jobs:
   summarise:
     runs-on: ubuntu-latest
+    env:                          # 👈 makes HF_TOKEN visible to every step
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: "3.11"
 
     - name: Install deps
       run: pip install -r requirements.txt
 
     - name: Run summariser
-      env:
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      run: python summary.py kpi_export.csv   # change if you adopt wildcard
+      run: python summary.py kpi_export.csv
+
+    # Optional: peek at the file (good for first test)
+    - name: Debug – show summary file
+      run: head -20 SUMMARY_EMAIL.txt
 
     - name: Send summary e-mail
-      if: always()                             # ← fire even on failure
+      if: always()                       # still fires on failure
       uses: dawidd6/action-send-mail@v3
       with:
         server_address: smtp.gmail.com
-        server_port: 465                      # simpler: SSL all the way
-        secure: true                          # TLS on connect
+        server_port: 465
+        secure: true                    # TLS on connect
         username: ${{ secrets.EMAIL_USER }}
         password: ${{ secrets.EMAIL_PASS }}
-        subject: "Daily PMO RAG Summary"
+        subject: "Daily PMO RAG Summary – ${{ job.status }}"
         to: ${{ secrets.EMAIL_TO }}
         from: "PMO Bot <${{ secrets.EMAIL_USER }}>"
-        body: file://SUMMARY_EMAIL.txt        # reads the file into message
+        body: file://SUMMARY_EMAIL.txt
