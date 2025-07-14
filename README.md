@@ -30,6 +30,9 @@ $ export HF_TOKEN=hf_...
 # optional mail creds
 $ export EMAIL_USER=you@gmail.com EMAIL_PASS=16‑char‑app‑pwd EMAIL_TO="team@example.com"
 
+# optional: more verbose logs
+set LOG_LEVEL=DEBUG
+
 # run it
 $ python scripts/summary.py data/Jira_export.csv
 ```
