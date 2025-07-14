@@ -63,7 +63,7 @@ FILE_IN = Path(sys.argv[1]) if len(sys.argv) > 1 else None
 # Summariser functions
 
 def hf_summarise(bullets: str) -> str:
-    """Summarise text using Hugging Face BART."""
+    """ Summarise text using Hugging Face BART."""
     payload = {"inputs": bullets, "parameters": {"max_length": 90}}
     try:
         r = requests.post(HF_API_URL, headers=HF_HEADERS, json=payload, timeout=60)
@@ -100,7 +100,7 @@ def summarise(bullets: str) -> str:
             return gpt_summarise(bullets)
         except Exception as e:
             print(f"[warn] OpenAI failed ({e}); falling back to Hugging Face…")
-    if HF_TOKEN:
+    else HF_TOKEN:
         return hf_summarise(bullets)
     sys.exit("ERROR: No working summariser API key provided.")
 
