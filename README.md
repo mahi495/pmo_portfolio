@@ -1,51 +1,41 @@
-# 🦾 AI-Powered PMO Portfolio 🚀  
-*Turn raw Jira & Excel data into a living dashboard **and** auto-e-mailed AI summaries – 100 % free-tools first.*
+# AI‑Powered PMO Portfolio 🚀
+
+*Turn raw Jira & Excel data into a living dashboard **and** auto‑e‑mailed GPT summaries – in one repo.*
 
 ---
 
-## 1 · What’s inside
+## 1 · What’s inside
 
-| Path / file | Purpose |
-|-------------|---------|
-| `data/` | Mock **Project_Schedule.xlsx** & **Jira_export.csv** so you can test end-to-end without corporate data. |
-| `scripts/summary.py` | Reads today’s CSV → builds a bullet list of Red tasks → **tries GPT** (`gpt-3.5-turbo` or `gpt-4o-mini`) → if key missing / quota exhausted, falls back to **Hugging Face BART** → e-mails the digest → deletes the temp txt. |
-| `.github/workflows/summary.yml` | Scheduled Action that runs every morning PK T, assembles an e-mail, and sends via Gmail. |
-| `powerbi/PM_Dashboard.pbix` | Finished report (earned-value KPIs, slicers). |
+| Folder / file | What it does |
+|---------------|-------------|
+| `data/` | Tiny mock *Project_Schedule.xlsx* + *Jira_export.csv* so you can test end‑to‑end without corporate data. |
+| `scripts/summary.py` | Reads today’s CSV → builds a bullet list → **tries GPT‑4o‑mini** → if that fails, falls back to **BART‑CNN** on Hugging Face → e‑mails the digest → deletes the temp txt. |
+| `.github/workflows/summary.yml` | A scheduled Action that runs the script every morning PKT, assembles an HTML‑ish e‑mail, and sends it via Gmail. |
+| `powerbi/PM_Dashboard.pbix` | Finished report (earned‑value KPIs, slicers). |
 
 ---
 
-## 2 · Quick start (local/free path)
-
+## 2 · Quick start (local)
 ```bash
-# clone + venv
-git clone https://github.com/mahi495/pmo_portfolio.git && cd pmo_portfolio
-python -m venv .venv && . .venv/Scripts/activate          # Windows: .\.venv\Scripts\activate
-pip install -r requirements.txt                          # pandas, requests, transformers
+# clone + set up venv
+$ git clone https://github.com/mahi495/pmo_portfolio.git && cd pmo_portfolio
+$ python -m venv .venv && source .venv/bin/activate
+$ pip install -r requirements.txt
 
-# choose ONE summariser key
-set HF_TOKEN=hf_...            # 100 % free (preferred for zero cost)
-# — or —
-set OPENAI_API_KEY=sk-...      # pay-as-you-go (first US $5 credit free)
+# one of the TWO summariser keys is enough
+$ export OPENAI_API_KEY=sk‑...
+# OR
+$ export HF_TOKEN=hf_...
 
 # optional mail creds
-set EMAIL_USER=you@gmail.com
-set EMAIL_PASS=16-char-app-password
-set EMAIL_TO="team@example.com"
+$ export EMAIL_USER=you@gmail.com EMAIL_PASS=16‑char‑app‑pwd EMAIL_TO="team@example.com"
 
-python scripts/summary.py data/Jira_export.csv
+# run it
+$ python scripts/summary.py data/Jira_export.csv
+```
+You should see a 60‑‑90‑word executive summary in the console; if mail creds are set you’ll get an e‑mail too.
 
-# === Summariser (pick ONE engine) ===
-OPENAI_API_KEY   # first preference – GPT (pay-as-you-go)
-HF_TOKEN         # fallback / free – facebook/bart-large-cnn
-
-# === E-mail (optional) ===
-EMAIL_USER       # Gmail address
-EMAIL_PASS       # 16-char App-Password
-EMAIL_TO         # comma-separated list
-
-# === Tuning (optional) ===
-GPT_MODEL=gpt-3.5-turbo    # 10× cheaper than 4-o-mini
-LOG_LEVEL=DEBUG            # more verbose logs
+---
 
 ## 3 · GitHub Actions daily run
 The included workflow triggers on **push**, on a **Run workflow** button, and **every day at 05:00 UTC** (10:00 PKT).
@@ -73,7 +63,7 @@ EMAIL_USER       # e.g. you@gmail.com
 EMAIL_PASS       # Gmail App‑Password (16 chars)
 EMAIL_TO         # comma‑separated list
 ```
-If both keys are present, the script **tries OpenAI first** – on any error, it logs a warning and falls back to Hugging Face.
+If both keys are present, the script **tries OpenAI first** – on any error it logs a warning and falls back to Hugging Face.
 
 ---
 
@@ -82,7 +72,7 @@ If both keys are present, the script **tries OpenAI first** – on any error, it
 2. Go to **⚙️ Settings → API keys → Create new secret key**.  
 3. Copy the string (starts with `sk‑`). Paste it into your local shell or GitHub secret.
 
-New accounts receive **US$5 free credit** (enough for ±10,000 summaries) valid for 3 months. After that, add a payment method or swap to the free Hugging Face tier.
+New accounts receive **US $5 free credit** (enough for ±10 000 summaries) valid for 3 months. After that, add a payment method or swap to the free Hugging Face tier.
 
 ---
 
