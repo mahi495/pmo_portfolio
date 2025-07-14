@@ -65,8 +65,12 @@ HF_TOKEN         # fallback – facebook/bart‑large‑cnn
 EMAIL_USER       # e.g. you@gmail.com
 EMAIL_PASS       # Gmail App‑Password (16 chars)
 EMAIL_TO         # comma‑separated list
+
+# === Logging/tuning (optional) ===
+LOG_LEVEL=DEBUG          # INFO by default; DEBUG for full stack traces
+GPT_MODEL=gpt-3.5-turbo  # 10× cheaper than gpt-4o-mini
 ```
-If both keys are present, the script **tries OpenAI first** – on any error it logs a warning and falls back to Hugging Face.
+If both keys are present, the script **tries OpenAI first** – on any error, it logs a warning and falls back to Hugging Face.
 
 ---
 
@@ -75,7 +79,7 @@ If both keys are present, the script **tries OpenAI first** – on any error it 
 2. Go to **⚙️ Settings → API keys → Create new secret key**.  
 3. Copy the string (starts with `sk‑`). Paste it into your local shell or GitHub secret.
 
-New accounts receive **US $5 free credit** (enough for ±10 000 summaries) valid for 3 months. After that, add a payment method or swap to the free Hugging Face tier.
+New accounts receive **US$5 free credit** (enough for ±10,000 summaries) valid for 3 months. After that, add a payment method or swap to the free Hugging Face tier.
 
 ---
 
