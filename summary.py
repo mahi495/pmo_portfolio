@@ -35,7 +35,7 @@ import textwrap
 from email.message import EmailMessage
 from pathlib import Path
 from typing import List
-
+import logging
 import pandas as pd
 import requests
 from dotenv import load_dotenv
@@ -58,12 +58,14 @@ HF_HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
 EMAIL_TMP = Path("SUMMARY_EMAIL.txt")
 FILE_IN = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 
 # ──────────────────────────────────────────────────────────────────────
 # Summariser functions
 
 def hf_summarise(bullets: str) -> str:
     """ Summarise text using Hugging Face BART."""
+    logging.info("Using Hugging Face BART-CNN")
     payload = {"inputs": bullets, "parameters": {"max_length": 90}}
     try:
         r = requests.post(HF_API_URL, headers=HF_HEADERS, json=payload, timeout=60)
@@ -78,10 +80,10 @@ def hf_summarise(bullets: str) -> str:
 def gpt_summarise(bullets: str) -> str:
     """Summarise text using OpenAI ChatCompletion."""
     import openai  # import only when actually needed
-
+    logging.info("Using OpenAI GPT-4o-mini")
     openai.api_key = OPENAI_API_KEY
     prompt = (
-        "Summarise the following project issues in ≤ 90 words, plain English, "
+        "Summarise the following project issues in ≤ 90 words, plain English."
         "grouping similar items and ending with an overall RAG if obvious.\n\n"
         f"Issues: {bullets}"
     )
@@ -95,14 +97,20 @@ def gpt_summarise(bullets: str) -> str:
 
 def summarise(bullets: str) -> str:
     """Try GPT first; if it fails, fall back to HF if available."""
-    if OPENAI_API_KEY:
-        try:
-            return gpt_summarise(bullets)
-        except Exception as e:
-            print(f"[warn] OpenAI failed ({e}); falling back to Hugging Face…")
-    else HF_TOKEN:
-        return hf_summarise(bullets)
-    sys.exit("ERROR: No working summariser API key provided.")
+    if OPENAI_API_KEY:                              # first choice
+    try:
+        summary = gpt_summarise(text)
+    except Exception as err:
+        logging.warning("GPT failed → %s", err)
+        if HF_TOKEN:                            # fallback
+            summary = hf_summarise(text)
+        else:
+            sys.exit("No working GPT and no HF_TOKEN – aborting.")
+    elif HF_TOKEN:                                  # no GPT key, but HF exists
+        summary = hf_summarise(text)
+    else:                                           # neither key is set
+        sys.exit("Set OPENAI_API_KEY or HF_TOKEN in your env/secrets.")
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Helper functions
