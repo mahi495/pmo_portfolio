@@ -1,4 +1,4 @@
-# AI‑Powered PMO Portfolio 🚀
+# AI‑Powered PMO Portfolio 
 
 *Turn raw Jira & Excel data into a living dashboard **and** auto‑e‑mailed GPT summaries – in one repo.*
 
@@ -98,10 +98,10 @@ summary.py ◀──── GitHub Actions / Flow ──┘
 ---
 
 ## 7 · Roadmap
-- [ ] 🔒 Secrets → Azure Key Vault binding for Actions.
-- [ ] 🌐 Multi‑language summaries (`?lang=es` query‑param).
-- [ ] 📊 Embed the PBI dashboard in SharePoint PMO portal.
-- [ ] 🤖 Teams slash‑command: `/pmo today` to trigger the run on demand.
+- [ ] Secrets → Azure Key Vault binding for Actions.
+- [ ] Multi‑language summaries (`?lang=es` query‑param).
+- [ ] Embed the PBI dashboard in SharePoint PMO portal.
+- [ ] Teams slash‑command: `/pmo today` to trigger the run on demand.
 
 ---
 
